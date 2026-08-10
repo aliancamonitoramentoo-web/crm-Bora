@@ -283,10 +283,10 @@ textarea.inp{resize:vertical;min-height:60px;}
     </div>
     <div class="lsub">Bora vender · Gestão para Confecções do Agreste</div>
     <div class="lfield"><label>Usuário</label><input class="linp" id="lg-user" placeholder="seu usuário" value="admin"></div>
-    <div class="lfield"><label>Senha</label><input class="linp" id="lg-pass" type="password" placeholder="••••••" value="1234" onkeydown="if(event.key==='Enter')login()"></div>
+    <div class="lfield"><label>Senha</label><input class="linp" id="lg-pass" type="password" placeholder="••••••" value="" onkeydown="if(event.key==='Enter')login()"></div>
     <button class="lbtn" onclick="login()">Entrar no galpão</button>
     <div class="lerr" id="lg-err"></div>
-    <div class="lhint">Demo pronta pra testar · usuário <b>admin</b> · senha <b>1234</b><br>Todos os dados ficam salvos no próprio aparelho.</div>
+    <div class="lhint" id="lg-hint">Todos os dados ficam salvos no próprio aparelho.</div>
   </div>
 </div>
 
@@ -608,6 +608,28 @@ textarea.inp{resize:vertical;min-height:60px;}
             <div id="cfg-setores"></div>
           </div>
         </div>
+        <div class="card">
+          <div class="ch"><span class="ct">👥 Usuários <span class="em">(acesso da equipe)</span></span></div>
+          <div class="cb">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+              <p class="muted" style="font-size:12px;line-height:1.5;margin:0;flex:1;min-width:180px">Crie logins pra sua equipe. <b>Administrador</b> vê tudo; <b>Usuário</b> vê só vendas e produção.</p>
+              <button class="btn pri" onclick="modalUsuario()">+ Novo usuário</button>
+            </div>
+            <div id="cfg-usuarios"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><span class="ct">🔒 Segurança <span class="em">(login)</span></span></div>
+          <div class="cb">
+            <p class="muted" style="font-size:12px;line-height:1.6;margin-bottom:12px">Defina seu usuário e senha de acesso — fica salvo neste aparelho. Troque a senha padrão <b>1234</b> pra proteger seu sistema.</p>
+            <div class="frow">
+              <div class="field"><label>Usuário</label><input class="inp" id="sec-user" placeholder="ex: joao"></div>
+              <div class="field"><label>Nova senha</label><input class="inp" id="sec-pass" type="password" placeholder="mín. 4 caracteres"></div>
+            </div>
+            <div class="field"><label>Confirmar senha</label><input class="inp" id="sec-pass2" type="password" placeholder="repita a senha"></div>
+            <button class="btn pri" onclick="salvarSenha()">Salvar login</button>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -651,6 +673,7 @@ function migrar(db){
   if(!Array.isArray(db.excursoes))db.excursoes=base.excursoes;
   if(!db.emp)db.emp=base.emp;
   db.clientes.forEach(c=>{ if(c.nasc===undefined)c.nasc=''; if(c.setorId===undefined)c.setorId=''; });
+  if(!Array.isArray(db.usuarios)||!db.usuarios.length){ var _a=null; try{var r=localStorage.getItem('bora_auth'); if(r)_a=JSON.parse(r);}catch(e){} db.usuarios=[{id:1,nome:'Administrador',user:(_a&&_a.u)||'admin',senha:(_a&&_a.p)||'1234',papel:'admin'}]; }
   return db;
 }
 
@@ -751,6 +774,7 @@ function seed(){
   return {
     emp:{nome:'Confecção Modelo',wa:'5581999999999',feira:'Terça',local:'Moda Center'},
     clientes,produtos,pedidos,ops,faccoes,mp,movs,agenda,setores,excursoes,
+    usuarios:[{id:1,nome:'Administrador',user:'admin',senha:'1234',papel:'admin'}],
     feed:[
       {id:uid(),ic:'🛒',t:'Novo pedido de Loja Beleza Íntima',s:'180 peças · R$ 5.100',time:'09:12'},
       {id:uid(),ic:'✅',t:'OP-1039 finalizada',s:'100 conjuntos fitness prontos',time:'08:40'},
@@ -764,11 +788,24 @@ function _nascEmDias(n){ const d=new Date(); d.setDate(d.getDate()+n); return '1
 function proxDia(nome){ const alvo=diasFeira.indexOf(nome); const d=new Date(); let add=(alvo-d.getDay()+7)%7; if(add===0)add=7; d.setDate(d.getDate()+add); return d.toISOString().slice(0,10); }
 
 /* ── LOGIN ── */
+function salvarSenha(){
+  const u=$('sec-user').value.trim(), p=$('sec-pass').value, p2=$('sec-pass2').value;
+  if(!u){ toast('Informe o usuário'); return; }
+  if(!p){ toast('Digite a nova senha'); return; }
+  if(p.length<4){ toast('Senha muito curta (mínimo 4 caracteres)'); return; }
+  if(p!==p2){ toast('As senhas não conferem'); return; }
+  if((DB.usuarios||[]).find(function(x){return x.user===u.toLowerCase()&&x.id!==CU.id;})){ toast('Esse login já está em uso'); return; }
+  var me=(DB.usuarios||[]).find(function(x){return x.id===CU.id;}); if(me){ me.user=u.toLowerCase(); me.senha=p; CU.user=me.user; }
+  $('sec-pass').value=''; $('sec-pass2').value=''; commit('Login atualizado');
+  toast('Login atualizado! Use na próxima entrada.');
+}
+window.addEventListener('load',function(){ var h=document.getElementById('lg-hint'); if(!h)return; var d=load(); var adm=d&&d.usuarios&&d.usuarios.find(function(u){return u.papel==='admin';}); if(!d||(adm&&adm.user==='admin'&&adm.senha==='1234')){ h.innerHTML='Primeiro acesso · usuário <b>admin</b> · senha <b>1234</b> — troque em Configurações › Segurança.<br>Todos os dados ficam salvos no próprio aparelho.'; } });
 function login(){
   const u=$('lg-user').value.trim(), p=$('lg-pass').value.trim();
-  if(u==='admin'&&p==='1234'){
-    CU={nome:'Admin'};
-    const _sv=load(); DB=_sv?migrar(_sv):seed();
+  const _sv=load(); DB=_sv?migrar(_sv):seed();
+  const found=(DB.usuarios||[]).find(function(x){return x.user===u&&x.senha===p;});
+  if(found){
+    CU={id:found.id,nome:found.nome,user:found.user,papel:found.papel};
     save();
     $('LOGIN').style.display='none';
     $('APP').classList.add('show');
@@ -799,6 +836,7 @@ const TITLES={
   config:['Configurações','Dados e backup'],
 };
 function go(p,el){
+  if((p==='financeiro'||p==='relatorios'||p==='config')&&!(CU&&CU.papel==='admin')){ toast('Acesso só para administrador'); return; }
   document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));
   $('pg-'+p).classList.add('on');
   document.querySelectorAll('.ni').forEach(x=>x.classList.remove('on'));
@@ -841,10 +879,11 @@ function parabens(id){ const c=cliById(id); if(!c)return; if(!c.tel){toast('Clie
 
 /* ── BOOT ── */
 function boot(){
-  $('sf-name').textContent=CU.nome;
+  $('sf-name').textContent=CU.nome+(CU.papel==='admin'?' · Admin':' · Usuário');
   $('sf-av').textContent=(DB.emp.nome||'C')[0].toUpperCase();
   $('sb-emp').textContent=DB.emp.nome;
   $('tb-feira').textContent='📍 '+DB.emp.local+' · '+DB.emp.feira;
+  applyRole();
   updBadges();
   rPainel();
 }
@@ -1583,6 +1622,52 @@ function rWhatsapp(){
   wrap.innerHTML=html||`<div class="empty"><div class="ei">✅</div><div class="et">Nada pendente pra hoje</div><div class="es">Quando tiver aniversário, cliente sumido, fiado em aberto ou excursão chegando, aparece aqui pra você disparar num toque.</div></div>`;
 }
 
+/* ═══════════ USUÁRIOS & PAPÉIS ═══════════ */
+const ADMINPAGES=['financeiro','relatorios','config'];
+const PAPEL={admin:['Administrador','pd'],user:['Usuário','bl']};
+function ehAdmin(){ return !!(CU&&CU.papel==='admin'); }
+function applyRole(){
+  const adm=ehAdmin();
+  ADMINPAGES.forEach(function(p){ document.querySelectorAll('[data-p="'+p+'"]').forEach(function(el){ el.style.display=adm?'':'none'; }); });
+  document.querySelectorAll('.ngrp').forEach(function(g){ if(g.textContent.trim()==='Sistema') g.style.display=adm?'':'none'; });
+}
+function rUsuarios(){
+  const w=$('cfg-usuarios'); if(!w)return;
+  w.innerHTML=(DB.usuarios||[]).map(function(u){var pr=PAPEL[u.papel]||['','gr'];var eu=CU&&CU.id===u.id;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--p2);border:1px solid var(--line);border-radius:11px;margin-bottom:8px">'
+      +'<div style="width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;'+(u.papel==='admin'?'background:var(--red);color:#fff':'background:var(--p3);color:var(--t2)')+'">'+(u.nome[0]||'?').toUpperCase()+'</div>'
+      +'<div style="flex:1"><b style="font-size:13px">'+u.nome+'</b>'+(eu?' <span class="fs">(você)</span>':'')+'<div class="fs">@'+u.user+'</div></div>'
+      +'<span class="bdg '+pr[1]+'">'+pr[0]+'</span>'
+      +'<button class="btn xs gh" onclick="modalUsuario('+u.id+')">✏️</button></div>';
+  }).join('')||'<div class="muted" style="font-size:12px">Nenhum usuário.</div>';
+}
+function modalUsuario(id){
+  const u=id?(DB.usuarios||[]).find(function(x){return x.id===id;}):{nome:'',user:'',senha:'',papel:'user'};
+  openModal(id?'Editar usuário':'Novo usuário','',
+    '<div class="field"><label>Nome</label><input class="inp" id="u-nome" value="'+u.nome+'" placeholder="ex: João Vendas"></div>'
+    +'<div class="frow"><div class="field"><label>Usuário (login)</label><input class="inp" id="u-user" value="'+u.user+'" placeholder="ex: joao"></div>'
+    +'<div class="field"><label>Senha</label><input class="inp" id="u-senha" value="'+(u.senha||'')+'" placeholder="mín. 4"></div></div>'
+    +'<div class="field"><label>Papel</label><select class="inp" id="u-papel"><option value="user"'+(u.papel==='user'?' selected':'')+'>Usuário — vendas e produção</option><option value="admin"'+(u.papel==='admin'?' selected':'')+'>Administrador — acesso total</option></select></div>'
+    +'<p class="muted" style="font-size:11px;line-height:1.5;margin-top:6px">Usuário vê Pedidos, Clientes, WhatsApp, Produção, Estoque, Agenda e Excursões. Não vê Financeiro, Relatórios nem Configurações.</p>',
+    (id&&CU.id!==id?'<button class="btn gh" style="margin-right:auto;color:var(--red2)" onclick="delUsuario('+id+')">Excluir</button>':'')+'<button class="btn gh" onclick="closeModal()">Cancelar</button><button class="btn pri" onclick="salvarUsuario('+(id||0)+')">Salvar</button>');
+}
+function salvarUsuario(id){
+  const nome=$('u-nome').value.trim(), user=$('u-user').value.trim().toLowerCase(), senha=$('u-senha').value, papel=$('u-papel').value;
+  if(!nome||!user){ toast('Preencha nome e usuário'); return; }
+  if((senha||'').length<4){ toast('Senha mínimo 4 caracteres'); return; }
+  if((DB.usuarios||[]).find(function(x){return x.user===user&&x.id!==id;})){ toast('Já existe um login com esse nome'); return; }
+  if(id){ Object.assign(DB.usuarios.find(function(x){return x.id===id;}),{nome:nome,user:user,senha:senha,papel:papel}); if(CU.id===id){CU.nome=nome;CU.user=user;CU.papel=papel;} toast('Usuário atualizado'); }
+  else { DB.usuarios.push({id:uid(),nome:nome,user:user,senha:senha,papel:papel}); toast('Usuário criado'); }
+  closeModal(); commit(); rUsuarios(); applyRole(); if(CU){$('sf-name').textContent=CU.nome+(CU.papel==='admin'?' · Admin':' · Usuário');}
+}
+function delUsuario(id){
+  if(CU.id===id){ toast('Você não pode excluir a si mesmo'); return; }
+  const alvo=(DB.usuarios||[]).find(function(x){return x.id===id;});
+  if(alvo&&alvo.papel==='admin'&&DB.usuarios.filter(function(x){return x.papel==='admin';}).length<=1){ toast('Precisa existir ao menos um admin'); return; }
+  if(!confirm('Excluir este usuário?'))return;
+  DB.usuarios=DB.usuarios.filter(function(x){return x.id!==id;}); closeModal(); commit('Usuário excluído'); rUsuarios();
+}
+
 /* ═══════════ RELATÓRIOS ═══════════ */
 function rRelatorios(){
   // modelos mais vendidos
@@ -1608,7 +1693,7 @@ function rRelatorios(){
 }
 
 /* ═══════════ CONFIG ═══════════ */
-function rConfig(){ $('cfg-emp').value=DB.emp.nome; $('cfg-wa').value=DB.emp.wa; $('cfg-feira').value=DB.emp.feira; $('cfg-local').value=DB.emp.local; rSetoresConfig(); }
+function rConfig(){ $('cfg-emp').value=DB.emp.nome; $('cfg-wa').value=DB.emp.wa; $('cfg-feira').value=DB.emp.feira; $('cfg-local').value=DB.emp.local; rSetoresConfig(); rUsuarios(); var su=$('sec-user'); if(su)su.value=(CU&&CU.user)||'admin'; }
 function salvarConfig(){
   DB.emp={nome:$('cfg-emp').value.trim()||'Confecção',wa:$('cfg-wa').value.replace(/\D/g,''),feira:$('cfg-feira').value,local:$('cfg-local').value};
   save(); boot(); toast('Dados salvos');
