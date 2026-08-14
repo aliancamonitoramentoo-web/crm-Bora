@@ -386,7 +386,7 @@ body.naoadmin .adm:not(.nav-group){display:none;}
 <div class="sb" id="SIDEBAR">
   <!-- Botão fechar no mobile -->
   <button onclick="toggleSidebar()" style="display:none;position:absolute;top:10px;right:10px;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:18px;width:32px;height:32px;border-radius:8px;cursor:pointer;align-items:center;justify-content:center;z-index:10" id="mob-close-btn">✕</button>
-  <div class="slogo"><div class="smark">⚡</div><div style="flex:1"><div class="sname">Aliance <span style="font-size:9px;color:#00d97e;font-weight:700;background:rgba(0,217,126,.12);padding:1px 6px;border-radius:6px;vertical-align:middle">v67 anti-dup</span></div><div class="ssub">Gerencie clientes. Feche mais negócios.</div></div><button id="btn-som" onclick="toggleSom()" title="Ligar/desligar sons" style="background:rgba(255,255,255,.08);border:none;color:#fff;font-size:16px;width:34px;height:34px;border-radius:9px;cursor:pointer;flex-shrink:0">🔊</button></div>
+  <div class="slogo"><div class="smark">⚡</div><div style="flex:1"><div class="sname">Aliance <span style="font-size:9px;color:#00d97e;font-weight:700;background:rgba(0,217,126,.12);padding:1px 6px;border-radius:6px;vertical-align:middle">v68 cartao-credito</span></div><div class="ssub">Gerencie clientes. Feche mais negócios.</div></div><button id="btn-som" onclick="toggleSom()" title="Ligar/desligar sons" style="background:rgba(255,255,255,.08);border:none;color:#fff;font-size:16px;width:34px;height:34px;border-radius:9px;cursor:pointer;flex-shrink:0">🔊</button></div>
   <button id="btn-instalar-app" onclick="instalarApp()" style="display:flex;align-items:center;justify-content:center;gap:7px;width:calc(100% - 24px);margin:0 12px 8px;padding:9px;background:linear-gradient(135deg,var(--red),#b3161d);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;font-family:var(--F)">📲 Instalar como App</button>
   <nav id="NAV">
 
@@ -3690,7 +3690,7 @@ function delMov(id){registrarDelecao(id);DB.movs=DB.movs.filter(x=>x.id!==id);rF
 // ═══════════════════════════════════════════════════
 let _vLinhas=[];
 const V_FORMAS=['PIX','Dinheiro','Cartão de Crédito','Cartão de Débito','Transferência','Boleto','Cheque'];
-const V_DEFERIDAS=['Boleto','Cheque']; // só entram no caixa quando dá baixa
+const V_DEFERIDAS=['Boleto','Cheque','Cartão de Crédito']; // só entram no caixa quando dá baixa (crédito cai depois)
 function abrirNovaVenda(preCli){
   _vLinhas=[{forma:'PIX', val:'', venc:'', parcelas:1}];
   $('mod-title').innerHTML='💰 Registrar Venda';
@@ -3748,7 +3748,13 @@ function renderVendaPag(){
         <input class="fc" style="flex:1" type="number" step="0.01" min="0" value="${l.val}" placeholder="0,00" oninput="_vLinhas[${i}].val=this.value;vendaCalc()">
         ${_vLinhas.length>1?`<button onclick="_vLinhas.splice(${i},1);renderVendaPag();vendaCalc()" style="width:30px;height:30px;border-radius:7px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.1);color:#ef4444;cursor:pointer;flex-shrink:0;font-family:var(--F)">✕</button>`:''}
       </div>
-      ${V_DEFERIDAS.includes(l.forma)?`<div style="margin-top:5px;background:rgba(255,140,66,.07);border:1px solid rgba(255,140,66,.2);border-radius:8px;padding:8px 9px">
+      ${V_DEFERIDAS.includes(l.forma)?(l.forma==='Cartão de Crédito'?`<div style="margin-top:5px;background:rgba(61,155,255,.07);border:1px solid rgba(61,155,255,.25);border-radius:8px;padding:8px 9px">
+        <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--blue);white-space:nowrap;font-weight:700">💳 Previsão de crédito:</span>
+          <input class="fc" type="date" style="flex:1;min-width:130px;font-size:12px;padding:5px" value="${l.venc||''}" oninput="_vLinhas[${i}].venc=this.value;renderVendaPagInfo(${i})">
+        </div>
+        <div id="v-parc-info-${i}" style="font-size:10.5px;color:var(--t3);margin-top:5px"></div>
+      </div>`:`<div style="margin-top:5px;background:rgba(255,140,66,.07);border:1px solid rgba(255,140,66,.2);border-radius:8px;padding:8px 9px">
         <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
           <span style="font-size:11px;color:var(--orange);white-space:nowrap;font-weight:700">📅 1º vence:</span>
           <input class="fc" type="date" style="flex:1;min-width:120px;font-size:12px;padding:5px" value="${l.venc||''}" oninput="_vLinhas[${i}].venc=this.value;renderVendaPagInfo(${i})">
@@ -3757,7 +3763,7 @@ function renderVendaPag(){
           <span style="font-size:11px;color:var(--t2);white-space:nowrap;font-weight:700">${l.forma==='Cheque'?'cheque(s)':'boleto(s)'}</span>
         </div>
         <div id="v-parc-info-${i}" style="font-size:10.5px;color:var(--t3);margin-top:5px"></div>
-      </div>`:''}
+      </div>`):''}
     </div>`).join('');
   // preenche infos das parcelas
   _vLinhas.forEach((l,i)=>{ if(V_DEFERIDAS.includes(l.forma)) renderVendaPagInfo(i); });
@@ -3767,6 +3773,13 @@ function renderVendaPagInfo(i){
   const el=$('v-parc-info-'+i); if(!el) return;
   const l=_vLinhas[i]; if(!l) return;
   const val=parseFloat(l.val)||0;
+  // Cartão de crédito: uma data só de previsão, sem parcelas mensais
+  if(l.forma==='Cartão de Crédito'){
+    l.parcelas=1;
+    if(val<=0 || !l.venc){ el.textContent='Informe o valor e a previsão de quando o crédito cai.'; return; }
+    el.innerHTML=`💳 <b>${fmtR(val)}</b> · previsto para <b style="color:var(--blue)">${new Date(l.venc+'T00:00:00').toLocaleDateString('pt-BR')}</b> · entra no caixa quando você der baixa`;
+    return;
+  }
   const n=parseInt(l.parcelas)||1;
   if(val<=0 || !l.venc){ el.textContent='Preencha valor e 1º vencimento.'; return; }
   const vp=val/n;
@@ -3813,7 +3826,8 @@ function confirmarVenda(){
   const linhas=_vLinhas.filter(l=>(parseFloat(l.val)||0)>0);
   if(!linhas.length){toast('⚠️ Informe ao menos uma forma de pagamento!');return;}
   for(const l of linhas){
-    if(V_DEFERIDAS.includes(l.forma) && !l.venc){ toast(`⚠️ Informe a data de vencimento do ${l.forma}!`); return; }
+    if(l.forma==='Cartão de Crédito'){ l.parcelas=1; if(!l.venc){ toast('⚠️ Informe a previsão de quando o crédito do cartão cai!'); return; } }
+    else if(V_DEFERIDAS.includes(l.forma) && !l.venc){ toast(`⚠️ Informe a data de vencimento do ${l.forma}!`); return; }
   }
   const hojeStr=new Date().toLocaleDateString('pt-BR');
   const lucro=(eq-custo)+mo;
@@ -3843,7 +3857,8 @@ function confirmarVenda(){
       }
       aReceber+=v;
       const vencFmt=new Date(l.venc+'T00:00:00').toLocaleDateString('pt-BR');
-      pagResumo.push(n>1?`${l.forma} ${n}x de ${fmtR(vp)} (1º vence ${vencFmt}) - a receber`:`${l.forma}: ${fmtR(v)} (vence ${vencFmt}) - a receber`);
+      if(l.forma==='Cartão de Crédito') pagResumo.push(`${l.forma}: ${fmtR(v)} (crédito previsto ${vencFmt}) - a receber`);
+      else pagResumo.push(n>1?`${l.forma} ${n}x de ${fmtR(vp)} (1º vence ${vencFmt}) - a receber`:`${l.forma}: ${fmtR(v)} (vence ${vencFmt}) - a receber`);
     }else{
       // entra no caixa agora
       DB.movs.unshift({id:uid(), tipo:'in', val:String(Math.round(v)), desc:`💰 Venda (${l.forma}) — ${cli}`, ref:`${prod||'Venda'} · ${hojeStr}`, data:new Date().toISOString(), vendaId});
