@@ -386,7 +386,7 @@ body.naoadmin .adm:not(.nav-group){display:none;}
 <div class="sb" id="SIDEBAR">
   <!-- Botão fechar no mobile -->
   <button onclick="toggleSidebar()" style="display:none;position:absolute;top:10px;right:10px;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:18px;width:32px;height:32px;border-radius:8px;cursor:pointer;align-items:center;justify-content:center;z-index:10" id="mob-close-btn">✕</button>
-  <div class="slogo"><div class="smark">⚡</div><div style="flex:1"><div class="sname">Aliance <span style="font-size:9px;color:#00d97e;font-weight:700;background:rgba(0,217,126,.12);padding:1px 6px;border-radius:6px;vertical-align:middle">v68 cartao-credito</span></div><div class="ssub">Gerencie clientes. Feche mais negócios.</div></div><button id="btn-som" onclick="toggleSom()" title="Ligar/desligar sons" style="background:rgba(255,255,255,.08);border:none;color:#fff;font-size:16px;width:34px;height:34px;border-radius:9px;cursor:pointer;flex-shrink:0">🔊</button></div>
+  <div class="slogo"><div class="smark">⚡</div><div style="flex:1"><div class="sname">Aliance <span style="font-size:9px;color:#00d97e;font-weight:700;background:rgba(0,217,126,.12);padding:1px 6px;border-radius:6px;vertical-align:middle">v71 del-venda</span></div><div class="ssub">Gerencie clientes. Feche mais negócios.</div></div><button id="btn-som" onclick="toggleSom()" title="Ligar/desligar sons" style="background:rgba(255,255,255,.08);border:none;color:#fff;font-size:16px;width:34px;height:34px;border-radius:9px;cursor:pointer;flex-shrink:0">🔊</button></div>
   <button id="btn-instalar-app" onclick="instalarApp()" style="display:flex;align-items:center;justify-content:center;gap:7px;width:calc(100% - 24px);margin:0 12px 8px;padding:9px;background:linear-gradient(135deg,var(--red),#b3161d);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;font-family:var(--F)">📲 Instalar como App</button>
   <nav id="NAV">
 
@@ -668,9 +668,10 @@ body.naoadmin .adm:not(.nav-group){display:none;}
   </div>
   <div class="g2">
     <div class="card"><div class="ch"><span class="ct">Distribuição por Contrato</span><span class="pill pg2">Real</span></div><div class="cb"><div style="height:168px"><canvas id="ch-fin"></canvas></div></div></div>
-    <div class="card"><div class="ch"><span class="ct">Lançamentos Financeiros</span><div style="display:flex;gap:6px"><button class="btn sm" style="background:rgba(0,217,126,.14);color:var(--green);font-weight:800" onclick="abrirNovaVenda()">💰 Nova Venda</button><button class="btn bg sm" onclick="M.open('mov')">+ Lançar</button></div></div><div class="cb" id="fin-movs"></div></div>
+    <div class="card"><div class="ch"><span class="ct">Lançamentos Financeiros</span><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm" style="background:rgba(0,217,126,.14);color:var(--green);font-weight:800" onclick="abrirNovaVenda()">💰 Nova Venda</button><button class="btn sm" style="background:rgba(255,140,66,.14);color:var(--orange);font-weight:800" onclick="abrirNovaSaida()">🛒 Nova Compra</button><button class="btn bg sm" onclick="M.open('mov')">+ Lançar</button></div></div><div class="cb" id="fin-movs"></div></div>
   </div>
   <div class="card" style="margin-top:4px"><div class="ch"><span class="ct">💰 Vendas Registradas</span><span class="pill" style="background:rgba(0,217,126,.15);color:var(--green)" id="fin-vendas-count">0</span></div><div class="cb" id="fin-vendas"></div></div>
+  <div class="card" style="margin-top:4px"><div class="ch"><span class="ct">📦 Itens Mais Comprados</span><span class="pill pr">Histórico</span></div><div class="cb" id="fin-itens-rank"></div></div>
   <div class="card" style="margin-top:4px"><div class="ch"><span class="ct">💸 Despesas por Categoria</span><span class="pill pr">Saídas</span></div><div class="cb" id="fin-cat"></div></div>
 </div>
 
@@ -3597,6 +3598,97 @@ function excluirVenda(id){
   toast(`🗑️ Venda de ${v.cli} excluída e valores revertidos.`);
 }
 
+// ═══════════════════════════════════════════════════
+//  🛒 NOVA COMPRA / SAÍDA COM ITENS (nota de compra)
+// ═══════════════════════════════════════════════════
+let _saidaItens=[];
+function abrirNovaSaida(){
+  _saidaItens=[{nome:'',qtd:1,val:''}];
+  $('mod-title').innerHTML='🛒 Nova Compra / Saída';
+  $('mod-body').innerHTML=`
+    <div class="fg2">
+      <div class="fg"><label>Fornecedor / Onde comprou</label><input class="fc" id="sd-forn" placeholder="Ex: Loja do Zé, Fornecedor X"></div>
+      <div class="fg"><label>Data da compra</label><input class="fc" id="sd-data" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    </div>
+    <div class="fg2">
+      <div class="fg"><label>Categoria</label><input class="fc" id="sd-cat" list="sd-cat-list" placeholder="Ex: Equipamento"><datalist id="sd-cat-list"><option>Equipamento / Material</option><option>Combustível</option><option>Ferramentas</option><option>Fornecedor</option><option>Manutenção de veículo</option><option>Outros</option></datalist></div>
+      <div class="fg"><label>Cliente (opcional)</label><input class="fc" id="sd-cli" list="sd-cli-dl" placeholder="Compra pra qual cliente?"><datalist id="sd-cli-dl">${DB.empresas.map(e=>`<option value="${e.nome}">`).join('')}</datalist></div>
+    </div>
+    <label style="font-size:11px;color:var(--t3);font-weight:700">Itens comprados (um por um)</label>
+    <div id="sd-itens" style="margin:8px 0"></div>
+    <button onclick="saidaAddItem()" style="width:100%;padding:8px;background:var(--s3);border:1px dashed var(--bd);border-radius:8px;color:var(--t2);font-size:12px;cursor:pointer;font-family:var(--F);margin-bottom:10px">+ Adicionar item</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--s2);border-radius:9px;margin-bottom:12px">
+      <span style="font-size:12px;color:var(--t3)">Total da compra</span>
+      <span id="sd-total" style="font-size:18px;font-weight:900;font-family:var(--M);color:var(--red)">R$ 0</span>
+    </div>
+    <button onclick="confirmarSaida()" style="width:100%;padding:12px;background:var(--red);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:var(--F)">Registrar Compra</button>`;
+  const b=$('mod-save-btn'); if(b)b.style.display='none';
+  $('MOD').classList.add('open');
+  renderSaidaItens(); saidaCalc();
+}
+function renderSaidaItens(){
+  const el=$('sd-itens'); if(!el) return;
+  el.innerHTML=_saidaItens.map((it,i)=>`
+    <div style="display:flex;gap:5px;margin-bottom:7px;align-items:center">
+      <input class="fc" style="flex:2.2;min-width:0" placeholder="Item (ex: Câmera Intelbras)" value="${(it.nome||'').replace(/"/g,'&quot;')}" oninput="_saidaItens[${i}].nome=this.value">
+      <input class="fc" style="width:52px;flex-shrink:0;text-align:center" type="number" min="1" placeholder="Qtd" value="${it.qtd}" oninput="_saidaItens[${i}].qtd=this.value;saidaCalc()" title="Quantidade">
+      <input class="fc" style="width:80px;flex-shrink:0" type="number" min="0" step="0.01" placeholder="R$ un." value="${it.val}" oninput="_saidaItens[${i}].val=this.value;saidaCalc()" title="Valor unitário">
+      ${_saidaItens.length>1?`<button onclick="_saidaItens.splice(${i},1);renderSaidaItens();saidaCalc()" style="width:28px;height:28px;flex-shrink:0;border-radius:7px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.1);color:#ef4444;cursor:pointer;font-family:var(--F)">✕</button>`:''}
+    </div>`).join('');
+}
+function saidaAddItem(){ _saidaItens.push({nome:'',qtd:1,val:''}); renderSaidaItens(); saidaCalc(); }
+function saidaCalc(){
+  const total=_saidaItens.reduce((a,it)=>a+((parseFloat(it.qtd)||0)*(parseFloat(it.val)||0)),0);
+  set('sd-total', fmtR(total));
+}
+function confirmarSaida(){
+  const itens=_saidaItens.filter(it=>(it.nome||'').trim() && (parseFloat(it.val)||0)>0);
+  if(!itens.length){ toast('⚠️ Adicione pelo menos um item com nome e valor!'); return; }
+  const total=itens.reduce((a,it)=>a+((parseFloat(it.qtd)||1)*(parseFloat(it.val)||0)),0);
+  const cat=($('sd-cat')?.value||'').trim()||'Equipamento / Material';
+  const forn=($('sd-forn')?.value||'').trim();
+  const cli=($('sd-cli')?.value||'').trim();
+  const dataVal=$('sd-data')?.value;
+  const dataISO=dataVal?new Date(dataVal+'T12:00:00').toISOString():new Date().toISOString();
+  const dataBR=dataVal?new Date(dataVal+'T12:00:00').toLocaleDateString('pt-BR'):new Date().toLocaleDateString('pt-BR');
+  // monta a lista de itens: "5x Câmera Intelbras, 1x DVR, ..."
+  const itensFmt=itens.map(it=>`${parseInt(it.qtd)||1}x ${it.nome.trim()}`).join(', ');
+  const desc=`[${cat}] ${itensFmt}${forn?` — ${forn}`:''}${cli?` (cliente: ${cli})`:''}`;
+  DB.movs=DB.movs||[];
+  DB.movs.unshift({
+    id:uid(), tipo:'out', val:String(Math.round(total)), desc,
+    ref:forn||'', cat, data:dataISO, dataBR,
+    itens:itens.map(it=>({nome:it.nome.trim(), qtd:parseInt(it.qtd)||1, val:parseFloat(it.val)||0})),
+    fornecedor:forn, cliente:cli
+  });
+  DB._ts=Date.now(); salvarLocal(); jbEnviar(false);
+  const b=$('mod-save-btn'); if(b)b.style.display=''; M.close();
+  rFinanceiro(); updKPI();
+  toast(`🛒 Compra de ${fmtR(total)} registrada (${itens.length} ${itens.length>1?'itens':'item'})!`);
+}
+// Ranking dos itens que mais saíram (por quantidade e por valor)
+function rItensComprados(){
+  const el=$('fin-itens-rank'); if(!el) return;
+  const acc={};
+  (DB.movs||[]).forEach(m=>{
+    if(m.tipo==='out' && Array.isArray(m.itens)){
+      m.itens.forEach(it=>{
+        const k=(it.nome||'').trim().toLowerCase(); if(!k) return;
+        if(!acc[k]) acc[k]={nome:it.nome.trim(), qtd:0, val:0};
+        acc[k].qtd+=(parseInt(it.qtd)||1);
+        acc[k].val+=((parseInt(it.qtd)||1)*(parseFloat(it.val)||0));
+      });
+    }
+  });
+  const arr=Object.values(acc).sort((a,b)=>b.qtd-a.qtd).slice(0,10);
+  if(!arr.length){ el.innerHTML=empty('📦','Nenhum item comprado ainda','Use "🛒 Nova Compra" para registrar itens'); return; }
+  el.innerHTML=`<div style="font-size:11px;color:var(--t3);margin-bottom:8px">O que você mais compra:</div>`+arr.map((it,i)=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;${i<arr.length-1?'border-bottom:1px solid var(--bd)':''}">
+      <span style="font-size:12.5px;color:var(--t1);font-weight:600">${i+1}. ${it.nome}</span>
+      <span style="font-size:11px;color:var(--t2)"><b style="color:var(--orange)">${it.qtd}un</b> · ${fmtR(it.val)}</span>
+    </div>`).join('');
+}
+
 function rDespesasCategoria(){
   const el=$('fin-cat'); if(!el) return;
   const outs=DB.movs.filter(m=>m.tipo==='out');
@@ -3630,6 +3722,7 @@ function rFinanceiro(){
   const m=$('fin-movs'); if(!m) return;
   rDespesasCategoria();
   if(typeof rVendas==='function') rVendas();
+  if(typeof rItensComprados==='function') rItensComprados();
 
   // Atualiza KPIs do financeiro usando calcReceita centralizado
   const r=calcReceita();
@@ -3652,7 +3745,8 @@ function rFinanceiro(){
       <div class="finic" style="background:${bg}">${icone}</div>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600;color:${isEstorno?'var(--red)':'var(--t1)'}">${mv.desc||'—'}</div>
-        <div style="font-size:11px;color:var(--t2)">${mv.ref||'—'}${isEstorno?` <span style="font-size:9px;background:rgba(239,68,68,.12);color:var(--red);padding:1px 5px;border-radius:4px;font-weight:700">ESTORNO — nao e despesa</span>`:''}</div>
+        <div style="font-size:11px;color:var(--t2)">${mv.dataBR?`📅 ${mv.dataBR} · `:''}${mv.ref||'—'}${isEstorno?` <span style="font-size:9px;background:rgba(239,68,68,.12);color:var(--red);padding:1px 5px;border-radius:4px;font-weight:700">ESTORNO — nao e despesa</span>`:''}</div>
+        ${Array.isArray(mv.itens)&&mv.itens.length?`<div style="margin-top:5px;background:var(--s2);border-radius:7px;padding:6px 9px">${mv.itens.map(it=>`<div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--t2)"><span>${it.qtd}x ${it.nome}</span><span>${fmtR((it.qtd||1)*(it.val||0))}</span></div>`).join('')}</div>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:7px">
         <span style="font-size:13px;font-weight:800;font-family:var(--M);color:${corValor}">${sinal} ${fmtR(mv.val)}</span>
@@ -3683,7 +3777,24 @@ function rFinanceiro(){
     </div>
   `:empty('💰','Sem lancamentos','Adicione entradas e saidas');
 }
-function delMov(id){registrarDelecao(id);DB.movs=DB.movs.filter(x=>x.id!==id);rFinanceiro();updKPI();toast('Lançamento removido!');}
+function delMov(id){
+  const mv=(DB.movs||[]).find(x=>String(x.id)===String(id));
+  // Se o lançamento faz parte de uma venda, o certo é excluir a venda inteira (senão o lucro fica)
+  if(mv && mv.vendaId){
+    const v=(DB.vendas||[]).find(x=>String(x.id)===String(mv.vendaId));
+    if(v && typeof excluirVenda==='function'){
+      if(confirm(`⚠️ Este valor veio da VENDA de ${v.cli} (${fmtR(parseR(v.total))}).\n\nApagar só este lançamento deixa o lucro e a venda no sistema. Para remover tudo certinho (lucro, receita e boletos), é melhor excluir a venda inteira.\n\nExcluir a venda agora?`)){
+        excluirVenda(v.id);
+      }
+      return;
+    }
+  }
+  if(!confirm('Apagar este lançamento?')) return;
+  registrarDelecao(id);
+  DB.movs=DB.movs.filter(x=>x.id!==id);
+  DB._ts=Date.now(); salvarLocal(); jbEnviar(false);
+  rFinanceiro();updKPI();toast('Lançamento removido!');
+}
 
 // ═══════════════════════════════════════════════════
 //  💰 REGISTRAR VENDA (equipamento + M.O. + lucro + pagamento)
@@ -5306,9 +5417,14 @@ const MFRM={
   <div style="font-size:11px;color:var(--t2);background:var(--s2);padding:9px;border-radius:8px;margin-top:4px">💡 Login disponível imediatamente. Edite nome/login/senha diretamente na tela de Usuários.</div>`,
 
   mov:`<div class="fg2"><div class="fg"><label>Tipo *</label><select class="fc" id="f0" onchange="movTipoChange()"><option value="in">💰 Entrada</option><option value="out">💸 Saída</option></select></div><div class="fg"><label>Valor (R$) *</label><input class="fc" id="f1" placeholder="1000"></div></div>
-  <div class="fg" id="mov-cat-wrap" style="display:none"><label>Categoria da saída</label><select class="fc" id="f4"><option>Combustível</option><option>Equipamento / Material</option><option>Salário / Mão de obra</option><option>Aluguel</option><option>Internet / Telefone</option><option>Ferramentas</option><option>Manutenção de veículo</option><option>Impostos / Taxas</option><option>Marketing / Anúncios</option><option>Fornecedor</option><option>Outros</option></select></div>
+  <div class="fg" id="mov-cat-wrap" style="display:none"><label>Categoria / Equipamento</label>
+    <input class="fc" id="f4" list="mov-cat-list" placeholder="Digite ou escolha (ex: DVR 16 canais, Cabo, Câmera...)">
+    <datalist id="mov-cat-list"><option>Combustível</option><option>Equipamento / Material</option><option>Câmera</option><option>DVR</option><option>HD</option><option>Fonte</option><option>Cabo</option><option>Alarme</option><option>Cerca elétrica</option><option>Salário / Mão de obra</option><option>Aluguel</option><option>Internet / Telefone</option><option>Ferramentas</option><option>Manutenção de veículo</option><option>Impostos / Taxas</option><option>Marketing / Anúncios</option><option>Fornecedor</option><option>Outros</option></datalist>
+    <div style="font-size:10px;color:var(--t3);margin-top:3px">Pode digitar o nome do equipamento que quiser.</div>
+  </div>
+  <div class="fg"><label>Data</label><input class="fc" id="f-mov-data" type="date"></div>
   <div class="fg"><label>Descrição</label><input class="fc" id="f2" placeholder="Ex: Gasolina da van, compra de câmeras..."></div>
-  <div class="fg"><label>Referência</label><input class="fc" id="f3" placeholder="Ex: Maio/2026, Nota 123..."></div>`,
+  <div class="fg"><label>Referência</label><input class="fc" id="f3" placeholder="Ex: Nota 123, Fornecedor X..."></div>`,
 
   tecnico:`
     <div class="fg"><label>Nome Completo *</label><input class="fc" id="f0" placeholder="Ex: Adenilson Silva"></div>
@@ -5364,6 +5480,9 @@ const M={
       const dl=$('rec-clientes-dl'); if(dl) dl.innerHTML=DB.empresas.map(e=>`<option value="${e.nome}">`).join('');
       const ds=$('rec-dia'); if(ds) ds.innerHTML=Array.from({length:28},(_,i)=>`<option${i+1===10?' selected':''}>${i+1}</option>`).join('');
       const pm=$('rec-primeiro'); if(pm&&!pm.value) pm.value=new Date().toISOString().slice(0,7);
+    }
+    if(type==='mov'){
+      const md=$('f-mov-data'); if(md&&!md.value) md.value=new Date().toISOString().slice(0,10);
     }
     if(type==='agenda'){
       // Popula datalist de clientes (field livre)
@@ -5659,7 +5778,11 @@ const M={
       const cat=(tipo==='out')?(gv('f4')||'Outros'):'';
       let desc=gv('f2')||'';
       if(tipo==='out'&&cat) desc=desc?`[${cat}] ${desc}`:cat;
-      DB.movs.unshift({id:uid(),tipo,val:String(val),desc,ref:gv('f3'),cat,data:new Date().toISOString()});
+      // data escolhida (ou hoje se vazio)
+      const dataVal=$('f-mov-data')?.value;
+      const dataISO=dataVal?new Date(dataVal+'T12:00:00').toISOString():new Date().toISOString();
+      const dataBR=dataVal?new Date(dataVal+'T12:00:00').toLocaleDateString('pt-BR'):new Date().toLocaleDateString('pt-BR');
+      DB.movs.unshift({id:uid(),tipo,val:String(val),desc,ref:gv('f3'),cat,data:dataISO,dataBR});
       rFinanceiro();updKPI();autoSave();M.close();
       toast(tipo==='out'?`💸 Saída de ${fmtR(val)} registrada!`:`💰 Entrada de ${fmtR(val)} registrada!`);return;
 
