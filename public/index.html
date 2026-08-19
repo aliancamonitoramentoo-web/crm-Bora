@@ -386,7 +386,7 @@ body.naoadmin .adm:not(.nav-group){display:none;}
 <div class="sb" id="SIDEBAR">
   <!-- Botão fechar no mobile -->
   <button onclick="toggleSidebar()" style="display:none;position:absolute;top:10px;right:10px;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:18px;width:32px;height:32px;border-radius:8px;cursor:pointer;align-items:center;justify-content:center;z-index:10" id="mob-close-btn">✕</button>
-  <div class="slogo"><div class="smark">⚡</div><div style="flex:1"><div class="sname">Aliance <span style="font-size:9px;color:#00d97e;font-weight:700;background:rgba(0,217,126,.12);padding:1px 6px;border-radius:6px;vertical-align:middle">v71 del-venda</span></div><div class="ssub">Gerencie clientes. Feche mais negócios.</div></div><button id="btn-som" onclick="toggleSom()" title="Ligar/desligar sons" style="background:rgba(255,255,255,.08);border:none;color:#fff;font-size:16px;width:34px;height:34px;border-radius:9px;cursor:pointer;flex-shrink:0">🔊</button></div>
+  <div class="slogo"><div class="smark">⚡</div><div style="flex:1"><div class="sname">Aliance <span style="font-size:9px;color:#00d97e;font-weight:700;background:rgba(0,217,126,.12);padding:1px 6px;border-radius:6px;vertical-align:middle">v73 meta-recorrente</span></div><div class="ssub">Gerencie clientes. Feche mais negócios.</div></div><button id="btn-som" onclick="toggleSom()" title="Ligar/desligar sons" style="background:rgba(255,255,255,.08);border:none;color:#fff;font-size:16px;width:34px;height:34px;border-radius:9px;cursor:pointer;flex-shrink:0">🔊</button></div>
   <button id="btn-instalar-app" onclick="instalarApp()" style="display:flex;align-items:center;justify-content:center;gap:7px;width:calc(100% - 24px);margin:0 12px 8px;padding:9px;background:linear-gradient(135deg,var(--red),#b3161d);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:800;cursor:pointer;font-family:var(--F)">📲 Instalar como App</button>
   <nav id="NAV">
 
@@ -691,6 +691,7 @@ body.naoadmin .adm:not(.nav-group){display:none;}
     <div class="fb" id="cob-f-atrasado" onclick="filtrarCob(this,'atrasado')">🚨 Atrasadas</div>
     <div class="fb" id="cob-f-pendente" onclick="filtrarCob(this,'pendente')">⏳ Pendentes</div>
     <div class="fb" id="cob-f-pago" onclick="filtrarCob(this,'pago')">✅ Pagas</div>
+    <div class="fb" id="cob-f-devedor" onclick="filtrarCob(this,'devedor')">👥 Por Devedor</div>
     <button class="btn bg adm" style="margin-left:auto" onclick="novaCobranca()">+ Nova Cobrança</button>
   </div>
 
@@ -4305,6 +4306,52 @@ function rCobrancas(){
   if(_cobFiltro==='atrasado') data=data.filter(c=>statusCob(c)==='atrasado');
   if(_cobFiltro==='pendente') data=data.filter(c=>['pendente','hoje'].includes(statusCob(c)));
   if(_cobFiltro==='pago')     data=data.filter(c=>c.pago);
+
+  // ── Visão POR DEVEDOR: agrupa as cobranças em aberto por cliente ──
+  if(_cobFiltro==='devedor'){
+    const abertas=DB.cobrancas.filter(c=>!c.pago);
+    if(!abertas.length){ el.innerHTML=empty('👥','Ninguém devendo','Todos os clientes estão em dia!'); return; }
+    const _cor={atrasado:'var(--red)',hoje:'var(--orange)',pendente:'var(--blue)',pago:'var(--green)'};
+    const _ic={atrasado:'🚨',hoje:'⏰',pendente:'⏳',pago:'✅'};
+    const porCli={};
+    abertas.forEach(c=>{
+      const k=(c.cliente||'Sem cliente').trim();
+      if(!porCli[k]) porCli[k]={cliente:k, itens:[], total:0, atrasadas:0};
+      porCli[k].itens.push(c);
+      porCli[k].total+=parseR(c.valor);
+      if(statusCob(c)==='atrasado') porCli[k].atrasadas++;
+    });
+    const grupos=Object.values(porCli).sort((a,b)=>b.total-a.total);
+    const totalGeral=grupos.reduce((a,g)=>a+g.total,0);
+    el.innerHTML=`<div style="background:var(--s2);border-radius:11px;padding:12px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--t3)">Total a receber (${grupos.length} cliente${grupos.length>1?'s':''})</span>
+        <span style="font-size:19px;font-weight:900;font-family:var(--M);color:var(--red)">${fmtR(totalGeral)}</span>
+      </div>`+grupos.map(g=>{
+      const temAtraso=g.atrasadas>0;
+      return `<div class="card" style="padding:0;overflow:hidden;margin-bottom:9px;${temAtraso?'border:1px solid rgba(255,69,96,.3)':''}">
+        <div style="padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:140px">
+            <div style="font-size:14px;font-weight:800;color:var(--t1)">${g.cliente}</div>
+            <div style="font-size:11px;color:var(--t2);margin-top:1px">${g.itens.length} cobrança${g.itens.length>1?'s':''} em aberto${temAtraso?` · <b style="color:var(--red)">${g.atrasadas} atrasada${g.atrasadas>1?'s':''}</b>`:''}</div>
+          </div>
+          <div style="font-size:17px;font-weight:900;font-family:var(--M);color:var(--red)">${fmtR(g.total)}</div>
+        </div>
+        <div style="border-top:1px solid var(--bd);padding:8px 14px;background:var(--s2)">
+          ${g.itens.map(c=>{
+            const s=statusCob(c);
+            const vencFmt=c.vencimento?new Date(c.vencimento+'T00:00:00').toLocaleDateString('pt-BR'):'sem data';
+            const corS=_cor[s]||'var(--t2)';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12px">
+              <span style="color:var(--t2)">${_ic[s]||''} ${c.descricao||'Cobrança'} <span style="color:var(--t3);font-size:10px">· vence ${vencFmt}</span></span>
+              <span style="display:flex;align-items:center;gap:6px"><b style="color:${corS}">${fmtR(parseR(c.valor))}</b><button class="btn sm" style="padding:2px 8px;font-size:10px;background:rgba(0,217,126,.12);color:var(--green)" onclick="marcarPago(${c.id})">✅ Baixa</button></span>
+            </div>`;
+          }).join('')}
+        </div>
+        ${g.itens[0]?.cliente?`<div style="padding:8px 14px;border-top:1px solid var(--bd)"><button class="btn bgh sm" style="width:100%;justify-content:center" onclick="cobrarWhatsApp(${g.itens[0].id})">💬 Cobrar ${g.cliente} no WhatsApp</button></div>`:''}
+      </div>`;
+    }).join('');
+    return;
+  }
 
   if(!data.length){
     el.innerHTML=empty('💸','Nenhuma cobrança','Clique em "+ Nova Cobrança" para registrar');
@@ -9835,19 +9882,23 @@ function calcValorMeta(meta){
   if(meta.tipo==='livre') return parseFloat(meta.valorAtual)||0;
 
   const contratos=DB.contratos.filter(c=>c.s==='at');
+  const recorrentes=(DB.recorrentes||[]).filter(r=>r.ativo);
 
   if(meta.tipo==='clientes_contrato'){
-    // Conta clientes com contrato do serviço/palavra-chave definido
+    // Conta clientes com contrato OU serviço recorrente do serviço/palavra-chave definido
     const filtro=(meta.filtro||'').toLowerCase();
-    if(!filtro) return contratos.length;
-    return contratos.filter(c=>(c.srv||'').toLowerCase().includes(filtro)).length;
+    const nCont = !filtro ? contratos.length : contratos.filter(c=>(c.srv||'').toLowerCase().includes(filtro)).length;
+    const nRec  = !filtro ? recorrentes.length : recorrentes.filter(r=>(r.servico||'').toLowerCase().includes(filtro)).length;
+    return nCont + nRec;
   }
   if(meta.tipo==='receita_contrato'){
-    // Soma receita dos contratos do serviço definido
+    // Soma receita dos contratos + serviços recorrentes do serviço definido
     const filtro=(meta.filtro||'').toLowerCase();
-    if(!filtro) return contratos.reduce((a,c)=>a+parseFloat(c.val||0),0);
-    return contratos.filter(c=>(c.srv||'').toLowerCase().includes(filtro))
-      .reduce((a,c)=>a+parseFloat(c.val||0),0);
+    const recCont = !filtro ? contratos.reduce((a,c)=>a+parseFloat(c.val||0),0)
+                            : contratos.filter(c=>(c.srv||'').toLowerCase().includes(filtro)).reduce((a,c)=>a+parseFloat(c.val||0),0);
+    const recRec  = !filtro ? recorrentes.reduce((a,r)=>a+parseR(r.val),0)
+                            : recorrentes.filter(r=>(r.servico||'').toLowerCase().includes(filtro)).reduce((a,r)=>a+parseR(r.val),0);
+    return recCont + recRec;
   }
   if(meta.tipo==='os_feitas')  return DB.os.filter(o=>o.s==='at').length;
   if(meta.tipo==='vendas')     return DB.deals.filter(d=>d.stage===DB.stages.length-1&&!d.cancelado).length;
@@ -9860,9 +9911,13 @@ function calcValorMeta(meta){
 // Retorna clientes que já contribuem para a meta
 function clientesDaMeta(meta){
   const contratos=DB.contratos.filter(c=>c.s==='at');
+  const recorrentes=(DB.recorrentes||[]).filter(r=>r.ativo);
   if(meta.tipo==='clientes_contrato'||meta.tipo==='receita_contrato'){
     const filtro=(meta.filtro||'').toLowerCase();
-    return contratos.filter(c=>!filtro||(c.srv||'').toLowerCase().includes(filtro));
+    const cont=contratos.filter(c=>!filtro||(c.srv||'').toLowerCase().includes(filtro));
+    const recs=recorrentes.filter(r=>!filtro||(r.servico||'').toLowerCase().includes(filtro))
+      .map(r=>({cli:r.cli, srv:r.servico, val:r.val, _recorrente:true}));
+    return [...cont, ...recs];
   }
   return [];
 }
